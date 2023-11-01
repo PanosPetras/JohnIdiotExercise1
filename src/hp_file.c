@@ -20,7 +20,8 @@ const int recordSize = 74;
 
 int HP_CreateFile(
 	char *fileName
-){
+){	
+	printf("%s",fileName);
   	BF_ErrorCode error = BF_CreateFile(fileName);
 	if(error != BF_OK){
 		return -1;
@@ -30,7 +31,7 @@ int HP_CreateFile(
 		.firstBlock = NULL, 
 		.lastBlockId = 0, 
 		.name = "", 
-		.numberOfRecords = 0, 
+		.numberOfRecords = 0,
 		.recordSize = 74, 
 		.recordsPerBlock = 6
 	};
@@ -40,7 +41,8 @@ int HP_CreateFile(
 	int file_desc;
 	BF_Block* block0;
 
-	BF_OpenFile(fileName, file_desc);
+	printf("op");
+	BF_OpenFile(fileName, &file_desc);
 
 	error = BF_AllocateBlock(file_desc, block0);
 	if(error != BF_OK){
@@ -52,10 +54,11 @@ int HP_CreateFile(
 
 	memcpy(records, &block0Info, sizeof(HP_info));
 
-	BF_Block_SetDirty(&block0);
+	BF_Block_SetDirty(block0);
 	BF_UnpinBlock(block0);
 
-	BF_CloseFile(file_desc);
+	
+	//BF_CloseFile(file_desc);
 
 	return 0;
 }
@@ -64,34 +67,20 @@ HP_info* HP_OpenFile(
 	char *fileName, 
 	int *file_desc
 ){
+	int old_file_desc = *file_desc;
 	HP_info* hpInfo;
 	BF_Block* block0;
+	int *jake;
 
 	BF_OpenFile(fileName, file_desc);
 
-	BF_GetBlock(file_desc, 0, block0);
+	const int banana= *file_desc;
+	// BF_GetBlock(*file_desc, 0, block0);
+	//data = BF_Block_GetData(block0);    
 
-	hpInfo = BF_Block_GetData(block0);
+	// hpInfo = (HP_info *) BF_Block_GetData(block0);
 
 	return hpInfo;
-}
-
-int HP_CloseFile(
-	int file_desc,
-	HP_info* hp_info
-){
-	if(
-		unpinAllBlocksFromFile(
-			file_desc,
-			hp_info->lastBlockId
-		)
-	) return -1;
-
-	if(BF_CloseFile(file_desc) != BF_OK){
-		return -1;
-	} else {
-  		return 0;
-	}
 }
 
 int unpinAllBlocksFromFile(
@@ -114,45 +103,22 @@ int unpinAllBlocksFromFile(
 	return 0;
 }
 
-int HP_InsertEntry(
+int HP_CloseFile(
 	int file_desc,
-	HP_info* hp_info, 
-	Record record
+	HP_info* hp_info
 ){
-	if(hp_info->lastBlockId == 0) { 
-		AddRecordToNewBlock(
+	if(
+		unpinAllBlocksFromFile(
 			file_desc,
-			hp_info,
-			hp_info->lastBlockId + 1,
-			record
-		);
+			hp_info->lastBlockId
+		)
+	) return -1;
+
+	if(BF_CloseFile(file_desc) != BF_OK){
+		return -1;
 	} else {
-		BF_Block* lastBlock;
-		BF_GetBlock(file_desc, hp_info->lastBlockId, lastBlock);
-
-		void* data = BF_Block_GetData(lastBlock);
-		HP_block_info* lastBlockInfo = data + 504;
-
-		int recordsInLastBlock = lastBlockInfo->numberOfRecords;
-
-		if(recordsInLastBlock >= hp_info->recordsPerBlock){
-			AddRecordToNewBlock(
-				file_desc,
-				hp_info,
-				hp_info->lastBlockId + 1,
-				record
-			);
-		} else {
-			AddRecordToExistingBlock(
-				file_desc,
-				hp_info,
-				lastBlock,
-				record
-			);
-		}
+  		return 0;
 	}
-
-	return -1;
 }
 
 int AddRecordToNewBlock(
@@ -166,7 +132,7 @@ int AddRecordToNewBlock(
 
 	void* data = BF_Block_GetData(newBlock);
 	Record* records = data;
-	HP_block_info* blockInfo = data + 504;
+	HP_block_info* blockInfo = (HP_block_info*)((Record*)data + 504); //  HP_block_info* blockInfo = (HP_block_info*)((Record*)data + 512 - 8);
 
 	HP_block_info newBlockInfo = {
 		.blockID = newId, 
@@ -190,7 +156,7 @@ void AddRecordToExistingBlock(
 ){
 	void* blockData = BF_Block_GetData(block);
 	Record* records = blockData;
-	HP_block_info* blockInfo = blockData + 504;
+	HP_block_info* blockInfo = (HP_block_info*)((Record*)blockData + 504);
 
 	memcpy(records + (blockInfo->numberOfRecords - 1) * hp_info->recordSize, &record, sizeof(Record));
 
@@ -200,10 +166,77 @@ void AddRecordToExistingBlock(
 	hp_info->numberOfRecords += 1;
 }
 
+
+int HP_InsertEntry(
+	int file_desc,
+	HP_info* hp_info, 
+	Record record
+){
+	if(hp_info->lastBlockId == 0) { 
+		AddRecordToNewBlock(
+			file_desc,
+			hp_info,
+			hp_info->lastBlockId + 1,
+			record
+		);
+	} else {
+		BF_Block* lastBlock;
+		BF_GetBlock(file_desc, hp_info->lastBlockId, lastBlock);
+
+		void* data = BF_Block_GetData(lastBlock);
+		HP_block_info* lastBlockInfo = (HP_block_info*)((Record*)data + 504);
+
+		int recordsInLastBlock = lastBlockInfo->numberOfRecords;
+
+		if(recordsInLastBlock >= hp_info->recordsPerBlock){
+			AddRecordToNewBlock(
+				file_desc,
+				hp_info,
+				hp_info->lastBlockId + 1,
+				record
+			);
+		} else {
+			AddRecordToExistingBlock(
+				file_desc,
+				hp_info,
+				lastBlock,
+				record
+			);
+		}
+	}
+
+	return -1;
+}
+
+
+
 int HP_GetAllEntries(
 	int file_desc,
 	HP_info* hp_info, 
 	int value
-){    
-	return -1;
+){
+	BF_Block* block;
+	BF_ErrorCode error;
+
+	for(int i = 1; i <= hp_info->lastBlockId; i++){
+		error = BF_GetBlock(file_desc, i, block);
+
+		if(error != BF_OK){
+			return -1;
+		}
+
+		void* data = BF_Block_GetData(block);
+		Record* records = data;
+		HP_block_info* blockInfo = (HP_block_info*)((Record*)data + 504);
+
+		for(int j = 0; j < blockInfo->numberOfRecords; j++){
+			if(records[j].id == value){
+				printf("%d, %s, %s, %s\n", records[j].id, records[j].name, records[j].surname, records[j].city);
+			}
+		}
+
+		BF_UnpinBlock(block);
+	}
+
+	return 0;
 }

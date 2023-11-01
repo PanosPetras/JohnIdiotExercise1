@@ -29,7 +29,7 @@ int main() {
   το αρχείο block_example.db για να δούμε τα περιεχόμενά του.
   */
   CALL_OR_DIE(BF_Init(LRU));
-  CALL_OR_DIE(BF_CreateFile("block_example.db"))
+  CALL_OR_DIE(BF_CreateFile("block_example.db"));
   CALL_OR_DIE(BF_OpenFile("block_example.db", &fd1));
 
   void* data;
