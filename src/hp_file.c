@@ -43,17 +43,17 @@ int HP_CreateFile(
 
 	BF_OpenFile(fileName, &file_desc);
 
+	//Initialize the first block of the file
 	BF_Block_Init(&block0);
 	if(
 		BF_AllocateBlock(file_desc, block0) != BF_OK
 	) return -1;
 	
-	void* records = BF_Block_GetData(block0);
+	void* info = BF_Block_GetData(block0);
 
-	memcpy(records, &block0Info, sizeof(HP_info));
+	memcpy(info, &block0Info, sizeof(HP_info));
 
-	HP_info* info = (HP_info*) records;	
-
+	//Free up the used block
 	BF_Block_SetDirty(block0);
 	BF_UnpinBlock(block0);
 	
@@ -70,14 +70,13 @@ HP_info* HP_OpenFile(
 
 	if(
 		BF_OpenFile(fileName, file_desc) != BF_OK
-	){
-		printf("Couldn't open file");
-		return NULL;
-	}
+	) return NULL;
 
+	//Get the first block of the file
 	BF_Block_Init(&block0);
 	BF_GetBlock(*file_desc, 0, block0);
 
+	//Get the metadata of the file
 	void* data = BF_Block_GetData(block0);    
 	HP_info* hpInfo = (HP_info *) data;
 
@@ -222,6 +221,7 @@ int HP_InsertEntry(
 	Record record
 ){
 	if(hp_info->lastBlockId == 0) { 
+		//If file has only one block, the metadata block, create new block
 		 return AddRecordToNewBlock(
 			file_desc,
 			hp_info,
@@ -232,6 +232,7 @@ int HP_InsertEntry(
 		int recordsInLastBlock = RecordsInLastBlockOfFile(file_desc, hp_info);
 
 		if(recordsInLastBlock >= hp_info->recordsPerBlock){
+			//If the last block is full, create a new one
 			return AddRecordToNewBlock(
 				file_desc,
 				hp_info,
@@ -239,6 +240,7 @@ int HP_InsertEntry(
 				record
 			);
 		} else {
+			//If the last block is not full, add the record to it
 			return AddRecordToLastBlock(
 				file_desc,
 				hp_info,
@@ -253,22 +255,25 @@ int HP_GetAllEntries(
 	HP_info* hp_info, 
 	int value
 ){
-	//Initialize block
+	//Initialize our variables
 	BF_Block* block;
 	void* data;
 	Record* records;
 	HP_block_info* blockInfo;
 	BF_Block_Init(&block);
 
+	//Cycle through all the blocks of the file
 	for(int i = 1; i <= hp_info->lastBlockId; i++){
 		if(
 			BF_GetBlock(file_desc, i, block) != BF_OK
 		) return -1;
 
+		//Get the data segments of the block
 		data = BF_Block_GetData(block);
 		records = data;
 		blockInfo = (HP_block_info*)(data + 504);
 
+		//Cycle through all the records of the block
 		for (int j = 0; j < blockInfo->numberOfRecords; j++){
 			if(
 				records[j].id == value
