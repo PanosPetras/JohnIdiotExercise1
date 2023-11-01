@@ -25,34 +25,29 @@ int main() {
 
   HP_info* hp_info = HP_OpenFile(FILE_NAME, &file_desc);
 
-  printf("\nfilename: %s\nnumber of records: %d\nrecords per block: %d\n", hp_info->name, hp_info->numberOfRecords, hp_info->recordsPerBlock);
+  printf("\nfilename: %s\nnumber of records: %d\nrecords per block: %d\n\n", hp_info->name, hp_info->numberOfRecords, hp_info->recordsPerBlock);
   
   Record record;
-  srand(1654985443);
+  srand(165854134);
   int r;
   printf("Insert Entries\n");
-  for (int id = 0; id < 133; ++id) {
-    printf("---------%d---------\n", id);
+  for (int id = 0; id < RECORDS_NUM; ++id) {
     record = randomRecord();
-
-    printRecord(record);
-    printf("-.-.-.-.-.-.-.-.-.-.-\n");
     HP_InsertEntry(file_desc, hp_info, record);
   }
-  printf("------------------\n");
 
   printf(
-    "\nfilename: %s\nnumber of records: %d\nrecords per block: %d\nnumber of blocks: %d\n", 
+    "\nfilename: %s\nnumber of records: %d\nrecords per block: %d\nnumber of blocks: %d\n\n", 
     hp_info->name, 
     hp_info->numberOfRecords, 
     hp_info->recordsPerBlock,
     hp_info->lastBlockId
   );
 
-  // printf("RUN PrintAllEntries\n");
-  // int id = rand() % RECORDS_NUM;
-  // printf("\nSearching for: %d",id);
-  // HP_GetAllEntries(file_desc,hp_info2, id);
+  printf("RUN PrintAllEntries\n");
+  int id = 210;
+  printf("\nSearching for: %d\n",id);
+  HP_GetAllEntries(file_desc,hp_info, id);
 
   HP_CloseFile(file_desc,hp_info);
   BF_Close();
