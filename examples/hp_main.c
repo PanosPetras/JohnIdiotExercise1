@@ -9,46 +9,36 @@
 #define FILE_NAME "data.db"
 
 #define CALL_OR_DIE(call)     \
-  {                           \
-    BF_ErrorCode code = call; \
-    if (code != BF_OK) {      \
-      BF_PrintError(code);    \
-      exit(code);             \
-    }                         \
-  }
+{                           \
+	BF_ErrorCode code = call; \
+	if (code != BF_OK) {      \
+		BF_PrintError(code);    \
+		exit(code);             \
+	}                         \
+}
 
 int main() {
-  printf("%s",FILE_NAME);
-  BF_Init(LRU);
-  HP_CreateFile(FILE_NAME);
-  int file_desc;
+	BF_Init(LRU);
 
-  HP_info* hp_info = HP_OpenFile(FILE_NAME, &file_desc);
+	HP_CreateFile(FILE_NAME);
+	int file_desc;
 
-  printf("\nfilename: %s\nnumber of records: %d\nrecords per block: %d\n\n", hp_info->name, hp_info->numberOfRecords, hp_info->recordsPerBlock);
-  
-  Record record;
-  srand(165854134);
-  int r;
-  printf("Insert Entries\n");
-  for (int id = 0; id < RECORDS_NUM; ++id) {
-    record = randomRecord();
-    HP_InsertEntry(file_desc, hp_info, record);
-  }
+	HP_info* hp_info2=HP_OpenFile(FILE_NAME, &file_desc);
 
-  printf(
-    "\nfilename: %s\nnumber of records: %d\nrecords per block: %d\nnumber of blocks: %d\n\n", 
-    hp_info->name, 
-    hp_info->numberOfRecords, 
-    hp_info->recordsPerBlock,
-    hp_info->lastBlockId
-  );
+	Record record;
+	srand(12569874);
+	int r;
+	printf("Insert Entries\n");
+	for (int id = 0; id < RECORDS_NUM; ++id) {
+		record = randomRecord();
+		HP_InsertEntry(file_desc,hp_info2, record);
+	}
 
-  printf("RUN PrintAllEntries\n");
-  int id = 210;
-  printf("\nSearching for: %d\n",id);
-  HP_GetAllEntries(file_desc,hp_info, id);
+	printf("RUN PrintAllEntries\n");
+	int id = rand() % RECORDS_NUM;
+	printf("\nSearching for: %d",id);
+	HP_GetAllEntries(file_desc,hp_info2, id);
 
-  HP_CloseFile(file_desc,hp_info);
-  BF_Close();
+	HP_CloseFile(file_desc,hp_info2);
+	BF_Close();
 }
