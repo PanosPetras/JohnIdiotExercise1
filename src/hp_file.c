@@ -89,7 +89,6 @@ HP_info* HP_OpenFile(
 	void* data = BF_Block_GetData(block0);    
 	HP_info* hpInfo = (HP_info *) data;
 
-	BF_UnpinBlock(block0);
 	BF_Block_Destroy(&block0);
 
 	return hpInfo;
