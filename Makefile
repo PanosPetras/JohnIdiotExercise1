@@ -1,7 +1,13 @@
 hp:
 	@echo " Compile hp_main ...";
-	rm data.db
+	@echo " Delete data.db ...";
+	rm -rf data.db
+	@echo " Compile ...";
 	gcc -I ./include/ -L ./lib/ -Wl,-rpath,./lib/ ./examples/hp_main.c ./src/record.c ./src/hp_file.c -lbf -o ./build/hp_main -O2
+	@echo " Run without valgrind ...";
+	./build/hp_main
+	@echo " Run with valgrind ...";
+	valgrind ./build/hp_main
 
 bf:
 	@echo " Compile bf_main ...";
