@@ -20,28 +20,12 @@ const int recordSize = 74;
 	}                         \
 }
 
-int HP_CreateFile(
-	char *fileName
+int initializeFirstBlockOfFile(
+	char *fileName,
+	int file_desc,
+	HP_info fileInfo
 ){
-	if(
-		BF_CreateFile(fileName) != BF_OK
-	) return -1;
-
-	HP_info block0Info = {
-		.firstBlock = NULL, 
-		.lastBlockId = 0, 
-		.name = "", 
-		.numberOfRecords = 0,
-		.recordSize = 74, 
-		.recordsPerBlock = 6
-	};
-
-	strncpy(block0Info.name, fileName, strlen(fileName));
-
-	int file_desc;
 	BF_Block* block0;
-
-	BF_OpenFile(fileName, &file_desc);
 
 	//Initialize the first block of the file
 	BF_Block_Init(&block0);
@@ -51,11 +35,41 @@ int HP_CreateFile(
 	
 	void* info = BF_Block_GetData(block0);
 
-	memcpy(info, &block0Info, sizeof(HP_info));
+	memcpy(info, &fileInfo, sizeof(HP_info));
 
 	//Free up the used block
 	BF_Block_SetDirty(block0);
 	BF_UnpinBlock(block0);
+	BF_Block_Destroy(&block0);
+
+	return 0;
+}
+
+int HP_CreateFile(
+	char *fileName
+){
+	if(
+		BF_CreateFile(fileName) != BF_OK
+	) return -1;
+
+	int file_desc;
+
+	BF_OpenFile(fileName, &file_desc);
+
+	//Initialize file info
+	HP_info fileInfo = {
+		.firstBlock = NULL, 
+		.lastBlockId = 0, 
+		.name = "", 
+		.numberOfRecords = 0,
+		.recordSize = 74, 
+		.recordsPerBlock = 6
+	};
+	strncpy(fileInfo.name, fileName, strlen(fileName));
+
+	if(
+		initializeFirstBlockOfFile(fileName, file_desc, fileInfo) != 0
+	) return -1;
 	
 	BF_CloseFile(file_desc);
 
@@ -80,6 +94,9 @@ HP_info* HP_OpenFile(
 	void* data = BF_Block_GetData(block0);    
 	HP_info* hpInfo = (HP_info *) data;
 
+	BF_UnpinBlock(block0);
+	BF_Block_Destroy(&block0);
+
 	return hpInfo;
 }
 
@@ -98,6 +115,8 @@ int unpinAllBlocksFromFile(
 		if(
 			BF_UnpinBlock(block) != BF_OK
 		) return -1;
+
+		BF_Block_Destroy(&block);
 	}
 
 	return 0;
@@ -151,6 +170,7 @@ int AddRecordToNewBlock(
 	//Free new block
 	BF_Block_SetDirty(newBlock);
 	BF_UnpinBlock(newBlock);
+	BF_Block_Destroy(&newBlock);
 	
 	//Update file info
 	hp_info->numberOfRecords += 1;
@@ -181,15 +201,16 @@ int AddRecordToLastBlock(
 	//Save block data
 	records[lastBlockInfo->numberOfRecords] = record;
 
+	//Update block
+	lastBlockInfo->numberOfRecords += 1;
+
 	//Free block
 	BF_Block_SetDirty(lastBlock);
 	BF_UnpinBlock(lastBlock);
+	BF_Block_Destroy(&lastBlock);
 	
 	//Update file info
 	hp_info->numberOfRecords += 1;
-
-	//Update block
-	lastBlockInfo->numberOfRecords += 1;
 
 	return 0;
 }
@@ -211,6 +232,7 @@ int RecordsInLastBlockOfFile(
 
 	//Free block
 	BF_UnpinBlock(lastBlock);
+	BF_Block_Destroy(&lastBlock);
 
 	return numberOfRecords;
 }
@@ -256,6 +278,7 @@ int HP_GetAllEntries(
 	int value
 ){
 	//Initialize our variables
+	int lastBlockId = 0;
 	BF_Block* block;
 	void* data;
 	Record* records;
@@ -277,9 +300,14 @@ int HP_GetAllEntries(
 		for (int j = 0; j < blockInfo->numberOfRecords; j++){
 			if(
 				records[j].id == value
-			) printRecord(records[j]);
+			) {
+				lastBlockId = i;
+				printRecord(records[j]);
+			}
 		}
+
+		BF_Block_Destroy(&block);
 	}
 
-	return 0;
+	return lastBlockId;
 }
