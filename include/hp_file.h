@@ -9,8 +9,8 @@ typedef struct {
 
     int numberOfRecords;
 
-    const int recordsPerBlock; //6
-    const int recordSize; //74
+    int recordsPerBlock; //6
+    int recordSize; //74
 
     BF_Block* firstBlock;
     int lastBlockId;

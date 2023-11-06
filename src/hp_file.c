@@ -22,8 +22,7 @@ const int recordSize = 74;
 
 int initializeFirstBlockOfFile(
 	char *fileName,
-	int file_desc,
-	HP_info fileInfo
+	int file_desc
 ){
 	BF_Block* block0;
 
@@ -33,9 +32,14 @@ int initializeFirstBlockOfFile(
 		BF_AllocateBlock(file_desc, block0) != BF_OK
 	) return -1;
 	
-	void* info = BF_Block_GetData(block0);
-
-	memcpy(info, &fileInfo, sizeof(HP_info));
+	void* data = BF_Block_GetData(block0);
+	HP_info* info = data;
+	
+	info->firstBlock = NULL;
+	info->lastBlockId = 0;
+	strncpy(info->name, fileName, strlen(fileName));
+	info->numberOfRecords = 0;
+	info->recordsPerBlock = 6;
 
 	//Free up the used block
 	BF_Block_SetDirty(block0);
@@ -54,21 +58,12 @@ int HP_CreateFile(
 
 	int file_desc;
 
-	BF_OpenFile(fileName, &file_desc);
-
-	//Initialize file info
-	HP_info fileInfo = {
-		.firstBlock = NULL, 
-		.lastBlockId = 0, 
-		.name = "", 
-		.numberOfRecords = 0,
-		.recordSize = 74, 
-		.recordsPerBlock = 6
-	};
-	strncpy(fileInfo.name, fileName, strlen(fileName));
+	if(
+		BF_OpenFile(fileName, &file_desc)
+	) return -1;
 
 	if(
-		initializeFirstBlockOfFile(fileName, file_desc, fileInfo) != 0
+		initializeFirstBlockOfFile(fileName, file_desc) != 0
 	) return -1;
 	
 	BF_CloseFile(file_desc);
@@ -115,9 +110,9 @@ int unpinAllBlocksFromFile(
 		if(
 			BF_UnpinBlock(block) != BF_OK
 		) return -1;
-
-		BF_Block_Destroy(&block);
 	}
+
+	BF_Block_Destroy(&block);
 
 	return 0;
 }
@@ -202,15 +197,15 @@ int AddRecordToLastBlock(
 	records[lastBlockInfo->numberOfRecords] = record;
 
 	//Update block
-	lastBlockInfo->numberOfRecords += 1;
+	lastBlockInfo->numberOfRecords++;
+	
+	//Update file info
+	hp_info->numberOfRecords++;
 
 	//Free block
 	BF_Block_SetDirty(lastBlock);
 	BF_UnpinBlock(lastBlock);
 	BF_Block_Destroy(&lastBlock);
-	
-	//Update file info
-	hp_info->numberOfRecords += 1;
 
 	return 0;
 }
@@ -306,8 +301,10 @@ int HP_GetAllEntries(
 			}
 		}
 
-		BF_Block_Destroy(&block);
+		BF_UnpinBlock(block);
 	}
+
+	BF_Block_Destroy(&block);
 
 	return lastBlockId;
 }
